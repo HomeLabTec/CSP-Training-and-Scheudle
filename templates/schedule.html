@@ -43,7 +43,8 @@
           <select class="person-select" name="station{{ idx }}_{{ i }}">
             <option value="">-- Select --</option>
             {% for name in names %}
-              <option value="{{ name }}" data-level="{{ levels[name] }}" class="level-{{ levels[name] }}">{{ name }}</option>
+              {% set lvl = levels.get(station, {}).get(name, 1) %}
+              <option value="{{ name }}" data-level="{{ lvl }}" class="level-{{ lvl }}">{{ name }}</option>
             {% endfor %}
           </select>
         </td>
