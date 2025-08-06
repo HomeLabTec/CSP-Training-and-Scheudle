@@ -82,6 +82,23 @@ def load_workbook_data():
     return wb, ws, headers, data
 
 
+def compute_overall_levels(data):
+    """Return an overall training level (1-4) for each person.
+
+    The level is computed as the rounded average of all available skill
+    entries for that person.  This provides a simple way to color code
+    people by their general training progress.
+    """
+    levels = {}
+    for name, skills in data.items():
+        values = [v for v in skills.values() if isinstance(v, (int, float))]
+        if values:
+            levels[name] = round(sum(values) / len(values))
+        else:
+            levels[name] = 1
+    return levels
+
+
 app = Flask(__name__)
 app.secret_key = "dev"
 
@@ -192,8 +209,9 @@ def schedule():
     """Display a table of stations with a dropdown of workers for each."""
     _, _, _, data = load_workbook_data()
     names = sorted(data.keys())
+    levels = compute_overall_levels(data)
     stations = list(enumerate(STATIONS))
-    return render_template("schedule.html", stations=stations, names=names)
+    return render_template("schedule.html", stations=stations, names=names, levels=levels)
 
 
 @app.route("/generate_schedule", methods=["POST"])
@@ -215,7 +233,9 @@ def view_schedule():
     schedule = session.get('last_schedule')
     if not schedule:
         return redirect(url_for('schedule'))
-    return render_template("generated_schedule.html", schedule=schedule)
+    _, _, _, data = load_workbook_data()
+    levels = compute_overall_levels(data)
+    return render_template("generated_schedule.html", schedule=schedule, levels=levels)
 
 @app.route("/decrease", methods=["GET", "POST"])
 def decrease():
