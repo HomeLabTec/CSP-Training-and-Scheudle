@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <h2>Production</h2>
+  <div>
+    {% for part in parts %}
+      <div style="margin-bottom: 15px;">
+        <strong>{{ part }}</strong><br>
+        <select name="press_{{ loop.index0 }}">
+          {% for press in presses %}
+            <option value="{{ press }}">{{ press }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    {% endfor %}
+  </div>
+{% endblock %}
+

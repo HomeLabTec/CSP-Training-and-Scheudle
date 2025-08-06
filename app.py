@@ -16,6 +16,13 @@ STATIONS = [
     "H567 Ext Bonder", "Driver Assignment", "PC Assignment", "Common Load",
 ]
 
+# list of presses used on the production page
+PRESS_OPTIONS = [
+    "Press 1", "Press 2", "Press 3", "Press 4", "Press 5", "Press 6",
+    "Press 7", "Press 8", "Press 9", "Press 10", "Press 11", "Press 12",
+    "Press 13", "Press 20", "Press 25", "Press 26",
+]
+
 def load_workbook_data():
     wb = openpyxl.load_workbook(EXCEL_PATH)
     ws = wb.active
@@ -62,6 +69,14 @@ def display():
     wb, ws, headers, data = load_workbook_data()
     parts = [part for _, part in headers]
     return render_template("display.html", parts=parts, data=data)
+
+
+@app.route("/production")
+def production():
+    """Show parts from the workbook with a press selection dropdown."""
+    _, _, headers, _ = load_workbook_data()
+    parts = [part for _, part in headers]
+    return render_template("production.html", parts=parts, presses=PRESS_OPTIONS)
 
 
 @app.route("/search")
