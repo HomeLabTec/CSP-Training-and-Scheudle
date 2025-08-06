@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session
 import openpyxl
 import os
+import re
 import sqlite3
 
 BASE_DIR = os.path.dirname(__file__)
@@ -113,6 +114,40 @@ def compute_part_levels(data):
     return levels
 
 
+def resolve_station_levels(stations, part_levels):
+    """Return a mapping of station -> {person: level}.
+
+    Stations representing presses need to be translated to the part currently
+    assigned to that press.  Production assignments are stored in the database
+    using the part name as the key and the press as the value.  This helper
+    function inverts that mapping and looks up the proper training levels for
+    each station.
+    """
+    conn = get_db()
+    press_map = {}
+    for row in conn.execute("SELECT station, press FROM production_assignments"):
+        press = row["press"]
+        if press and press != "N/A":
+            press_map[press] = row["station"]
+    conn.close()
+
+    station_levels = {}
+    for station in stations:
+        part = press_map.get(station)
+        if part is None:
+            base = re.sub(r"\s+\d+$", "", station)
+            bases = [base, base.replace("Great White", "GW")]
+            part = None
+            for b in bases:
+                part = next((p for p in part_levels if p.startswith(b)), None)
+                if part:
+                    break
+            if part is None:
+                part = station
+        station_levels[station] = part_levels.get(part, {})
+    return station_levels
+
+
 app = Flask(__name__)
 app.secret_key = "dev"
 
@@ -223,7 +258,8 @@ def schedule():
     """Display a table of stations with a dropdown of workers for each."""
     _, _, _, data = load_workbook_data()
     names = sorted(data.keys())
-    levels = compute_part_levels(data)
+    part_levels = compute_part_levels(data)
+    levels = resolve_station_levels(STATIONS, part_levels)
     stations = list(enumerate(STATIONS))
     return render_template("schedule.html", stations=stations, names=names, levels=levels)
 
@@ -248,7 +284,8 @@ def view_schedule():
     if not schedule:
         return redirect(url_for('schedule'))
     _, _, _, data = load_workbook_data()
-    levels = compute_part_levels(data)
+    part_levels = compute_part_levels(data)
+    levels = resolve_station_levels(schedule.keys(), part_levels)
     return render_template("generated_schedule.html", schedule=schedule, levels=levels)
 
 @app.route("/decrease", methods=["GET", "POST"])
