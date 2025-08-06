@@ -7,6 +7,15 @@
     .schedule-table select {
       width: 150px;
     }
+    .level-1, .level-2, .level-3, .level-4 {
+      color: #000;
+      display: block;
+      padding: 2px 4px;
+    }
+    .level-1 { background-color: #ff4c4c; }
+    .level-2 { background-color: #ffb3b3; }
+    .level-3 { background-color: #90ee90; }
+    .level-4 { background-color: #00b300; }
   </style>
   <h2>Schedule</h2>
   {% if session.get('last_schedule') %}
@@ -34,7 +43,7 @@
           <select class="person-select" name="station{{ idx }}_{{ i }}">
             <option value="">-- Select --</option>
             {% for name in names %}
-              <option value="{{ name }}">{{ name }}</option>
+              <option value="{{ name }}" data-level="{{ levels[name] }}" class="level-{{ levels[name] }}">{{ name }}</option>
             {% endfor %}
           </select>
         </td>
@@ -51,7 +60,20 @@
   <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
   <script>
     $(function(){
-      $('.person-select').select2();
+      function formatName(state) {
+        if (!state.id) { return state.text; }
+        var level = $(state.element).data('level');
+        var $state = $('<span>' + state.text + '</span>');
+        if (level) {
+          $state.addClass('level-' + level);
+        }
+        return $state;
+      }
+
+      $('.person-select').select2({
+        templateResult: formatName,
+        templateSelection: formatName
+      });
 
       function updateOptions() {
         var selected = [];
