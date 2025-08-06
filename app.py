@@ -21,6 +21,7 @@ STATIONS = [
 
 # list of presses used on the production page
 PRESS_OPTIONS = [
+    "N/A",
     "Press 1", "Press 2", "Press 3", "Press 4", "Press 5", "Press 6",
     "Press 7", "Press 8", "Press 9", "Press 10", "Press 11", "Press 12",
     "Press 13", "Press 20", "Press 25", "Press 26",
