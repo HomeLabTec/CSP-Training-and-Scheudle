@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, jsonify, redirect, url_for, s
 import openpyxl
 import os
 import sqlite3
+import re
 
 BASE_DIR = os.path.dirname(__file__)
 EXCEL_PATH = os.path.join(BASE_DIR, "training-master.xlsx")
@@ -80,6 +81,53 @@ def load_workbook_data():
         data[name] = skills
 
     return wb, ws, headers, data
+
+
+def compute_overall_levels(data):
+    """Return an overall training level (1-4) for each person.
+
+    The level is computed as the rounded average of all available skill
+    entries for that person.  This provides a simple way to color code
+    people by their general training progress.
+    """
+    levels = {}
+    for name, skills in data.items():
+        values = [v for v in skills.values() if isinstance(v, (int, float))]
+        if values:
+            levels[name] = round(sum(values) / len(values))
+        else:
+            levels[name] = 1
+    return levels
+
+
+def _norm(text):
+    """Normalize labels for fuzzy comparison."""
+    return re.sub(r"[^a-z0-9]", "", text.lower())
+
+
+def _part_for_station(station, headers):
+    """Best-effort match of a station name to a part label."""
+    s_norm = _norm(station)
+    for _, part in headers:
+        p_norm = _norm(part)
+        if p_norm and (p_norm in s_norm or s_norm in p_norm):
+            return part
+    return None
+
+
+def compute_station_levels(headers, data):
+    """Return {station -> {name -> level}} using part-specific skills when possible."""
+    overall = compute_overall_levels(data)
+    station_levels = {}
+    for station in STATIONS:
+        part = _part_for_station(station, headers)
+        if part:
+            station_levels[station] = {
+                name: skills.get(part, 1) for name, skills in data.items()
+            }
+        else:
+            station_levels[station] = overall.copy()
+    return station_levels
 
 
 app = Flask(__name__)
@@ -190,10 +238,16 @@ def add():
 @app.route("/schedule")
 def schedule():
     """Display a table of stations with a dropdown of workers for each."""
-    _, _, _, data = load_workbook_data()
+    _, _, headers, data = load_workbook_data()
     names = sorted(data.keys())
+    station_levels = compute_station_levels(headers, data)
     stations = list(enumerate(STATIONS))
-    return render_template("schedule.html", stations=stations, names=names)
+    return render_template(
+        "schedule.html",
+        stations=stations,
+        names=names,
+        station_levels=station_levels,
+    )
 
 
 @app.route("/generate_schedule", methods=["POST"])
@@ -215,7 +269,11 @@ def view_schedule():
     schedule = session.get('last_schedule')
     if not schedule:
         return redirect(url_for('schedule'))
-    return render_template("generated_schedule.html", schedule=schedule)
+    _, _, headers, data = load_workbook_data()
+    station_levels = compute_station_levels(headers, data)
+    return render_template(
+        "generated_schedule.html", schedule=schedule, station_levels=station_levels
+    )
 
 @app.route("/decrease", methods=["GET", "POST"])
 def decrease():

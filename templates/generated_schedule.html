@@ -16,18 +16,27 @@
       text-align: center;
     }
     .person-name {
-      background-color: #ffffff;
       padding: 4px;
       text-align: center;
     }
+    .person-name.level-1 { background-color: #ff4c4c; }
+    .person-name.level-2 { background-color: #ffb3b3; }
+    .person-name.level-3 { background-color: #90ee90; }
+    .person-name.level-4 { background-color: #00b300; }
   </style>
   <h2>Generated Schedule</h2>
   <div class="schedule-grid">
     {% for station, people in schedule.items() %}
+    {% set levels = station_levels[station] %}
     <div class="station-box">
       <div class="station-header">{{ station }}</div>
       {% for person in people %}
-      <div class="person-name">{{ person }}</div>
+      {% if person %}
+      {% set lvl = levels.get(person, 1) %}
+      <div class="person-name level-{{ lvl }}">{{ person }}</div>
+      {% else %}
+      <div class="person-name"></div>
+      {% endif %}
       {% endfor %}
     </div>
     {% endfor %}
