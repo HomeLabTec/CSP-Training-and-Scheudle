@@ -2,17 +2,18 @@
 
 {% block content %}
   <h2>Production</h2>
-  <div>
+  <form method="POST">
     {% for part in parts %}
       <div style="margin-bottom: 15px;">
         <strong>{{ part }}</strong><br>
         <select name="press_{{ loop.index0 }}">
           {% for press in presses %}
-            <option value="{{ press }}">{{ press }}</option>
+            <option value="{{ press }}" {% if assignments.get(part) == press %}selected{% endif %}>{{ press }}</option>
           {% endfor %}
         </select>
       </div>
     {% endfor %}
-  </div>
+    <button type="submit">Save</button>
+  </form>
 {% endblock %}
 

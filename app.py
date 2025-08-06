@@ -1,8 +1,11 @@
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session
 import openpyxl
 import os
+import sqlite3
 
-EXCEL_PATH = os.path.join(os.path.dirname(__file__), "training-master.xlsx")
+BASE_DIR = os.path.dirname(__file__)
+EXCEL_PATH = os.path.join(BASE_DIR, "training-master.xlsx")
+PRODUCTION_DB = os.path.join(BASE_DIR, "production.db")
 
 # list of stations for the schedule page
 STATIONS = [
@@ -22,6 +25,28 @@ PRESS_OPTIONS = [
     "Press 7", "Press 8", "Press 9", "Press 10", "Press 11", "Press 12",
     "Press 13", "Press 20", "Press 25", "Press 26",
 ]
+
+
+def get_db():
+    """Open a connection to the production database."""
+    conn = sqlite3.connect(PRODUCTION_DB)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def init_db():
+    """Ensure the production table exists."""
+    conn = get_db()
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS production_assignments (
+            station TEXT PRIMARY KEY,
+            press   TEXT
+        )
+        """
+    )
+    conn.commit()
+    conn.close()
 
 def load_workbook_data():
     wb = openpyxl.load_workbook(EXCEL_PATH)
@@ -59,6 +84,9 @@ def load_workbook_data():
 app = Flask(__name__)
 app.secret_key = "dev"
 
+# ensure database exists at startup
+init_db()
+
 @app.route("/")
 def index():
     return render_template("index.html")
@@ -71,12 +99,34 @@ def display():
     return render_template("display.html", parts=parts, data=data)
 
 
-@app.route("/production")
+@app.route("/production", methods=["GET", "POST"])
 def production():
     """Show parts from the workbook with a press selection dropdown."""
     _, _, headers, _ = load_workbook_data()
     parts = [part for _, part in headers]
-    return render_template("production.html", parts=parts, presses=PRESS_OPTIONS)
+    conn = get_db()
+
+    if request.method == "POST":
+        for idx, part in enumerate(parts):
+            selected_press = request.form.get(f"press_{idx}")
+            if selected_press:
+                conn.execute(
+                    "REPLACE INTO production_assignments (station, press) VALUES (?, ?)",
+                    (part, selected_press),
+                )
+        conn.commit()
+
+    assignments = {
+        row["station"]: row["press"]
+        for row in conn.execute("SELECT station, press FROM production_assignments")
+    }
+    conn.close()
+    return render_template(
+        "production.html",
+        parts=parts,
+        presses=PRESS_OPTIONS,
+        assignments=assignments,
+    )
 
 
 @app.route("/search")
