@@ -31,7 +31,8 @@
       <div class="station-header">{{ station }}</div>
       {% for person in people %}
       {% if person %}
-      <div class="person-name level-{{ levels.get(person, 1) }}">{{ person }}</div>
+      {% set lvl = levels.get(station, {}).get(person, 1) %}
+      <div class="person-name level-{{ lvl }}">{{ person }}</div>
       {% else %}
       <div class="person-name"></div>
       {% endif %}

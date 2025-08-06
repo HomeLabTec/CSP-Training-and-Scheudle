@@ -99,6 +99,20 @@ def compute_overall_levels(data):
     return levels
 
 
+def compute_part_levels(data):
+    """Return training level lookup per part and person.
+
+    The returned mapping has the form {part: {name: level}} allowing
+    templates to color code people based on the specific part instead of
+    an overall average.
+    """
+    levels = {}
+    for name, skills in data.items():
+        for part, level in skills.items():
+            levels.setdefault(part, {})[name] = level
+    return levels
+
+
 app = Flask(__name__)
 app.secret_key = "dev"
 
@@ -209,7 +223,7 @@ def schedule():
     """Display a table of stations with a dropdown of workers for each."""
     _, _, _, data = load_workbook_data()
     names = sorted(data.keys())
-    levels = compute_overall_levels(data)
+    levels = compute_part_levels(data)
     stations = list(enumerate(STATIONS))
     return render_template("schedule.html", stations=stations, names=names, levels=levels)
 
@@ -234,7 +248,7 @@ def view_schedule():
     if not schedule:
         return redirect(url_for('schedule'))
     _, _, _, data = load_workbook_data()
-    levels = compute_overall_levels(data)
+    levels = compute_part_levels(data)
     return render_template("generated_schedule.html", schedule=schedule, levels=levels)
 
 @app.route("/decrease", methods=["GET", "POST"])
