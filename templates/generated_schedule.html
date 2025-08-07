@@ -40,8 +40,8 @@
     </div>
     {% endfor %}
   </div>
-  <p style="margin-top:1em;">
-    <a href="{{ url_for('schedule') }}">Back to Schedule Page</a> |
-    <a href="{{ url_for('view_schedule', date=selected_date) if selected_date else url_for('view_schedule') }}">Reload Generated Schedule</a>
-  </p>
+    <p style="margin-top:1em;">
+      <a href="{{ url_for('schedule', date=selected_date) if selected_date else url_for('schedule') }}">Edit Schedule</a> |
+      <a href="{{ url_for('view_schedule', date=selected_date) if selected_date else url_for('view_schedule') }}">Reload Generated Schedule</a>
+    </p>
 {% endblock %}
