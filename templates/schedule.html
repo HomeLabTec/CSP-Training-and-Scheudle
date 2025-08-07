@@ -18,7 +18,7 @@
     .level-4 { background-color: #00b300; }
   </style>
   <h2>Schedule</h2>
-  {% if session.get('last_schedule') %}
+  {% if prev_schedule %}
     <p><a href="{{ url_for('view_schedule') }}">View Current Generated Schedule</a></p>
   {% endif %}
   <form id="scheduleForm" method="post" action="{{ url_for('generate_schedule') }}">

@@ -201,6 +201,21 @@ def load_schedule(date_str):
     return schedule
 
 
+def load_latest_schedule():
+    """Return the most recently saved schedule.
+
+    If no schedules have been saved yet, an empty dictionary is
+    returned.  This allows pages to safely attempt to preload a
+    schedule without additional existence checks.
+    """
+    conn = get_db()
+    row = conn.execute("SELECT MAX(date) as max_date FROM schedules").fetchone()
+    conn.close()
+    if row and row["max_date"]:
+        return load_schedule(row["max_date"])
+    return {}
+
+
 app = Flask(__name__)
 app.secret_key = "dev"
 
@@ -313,8 +328,11 @@ def schedule():
     names = sorted(data.keys())
     part_levels = compute_part_levels(data)
     levels = resolve_station_levels(STATIONS, part_levels)
-    prev_date = (datetime.date.today() - datetime.timedelta(days=1)).isoformat()
-    prev_schedule = load_schedule(prev_date)
+    date_str = request.args.get('date')
+    if date_str:
+        prev_schedule = load_schedule(date_str)
+    else:
+        prev_schedule = load_latest_schedule()
     stations = list(enumerate(STATIONS))
     return render_template(
         "schedule.html",
@@ -353,6 +371,8 @@ def view_schedule():
         schedule = load_schedule(date_str)
     else:
         schedule = session.get('last_schedule')
+        if not schedule:
+            schedule = load_latest_schedule()
     if not schedule:
         return redirect(url_for('schedule'))
     _, _, _, data = load_workbook_data()
