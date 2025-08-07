@@ -3,6 +3,7 @@ import openpyxl
 import os
 import re
 import sqlite3
+import datetime
 
 BASE_DIR = os.path.dirname(__file__)
 EXCEL_PATH = os.path.join(BASE_DIR, "training-master.xlsx")
@@ -37,13 +38,28 @@ def get_db():
 
 
 def init_db():
-    """Ensure the production table exists."""
+    """Ensure necessary tables exist."""
     conn = get_db()
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS production_assignments (
             station TEXT PRIMARY KEY,
             press   TEXT
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS schedules (
+            date    TEXT,
+            station TEXT,
+            person1 TEXT,
+            person2 TEXT,
+            person3 TEXT,
+            person4 TEXT,
+            person5 TEXT,
+            person6 TEXT,
+            PRIMARY KEY (date, station)
         )
         """
     )
@@ -146,6 +162,43 @@ def resolve_station_levels(stations, part_levels):
                 part = station
         station_levels[station] = part_levels.get(part, {})
     return station_levels
+
+
+def save_schedule(date_str, schedule):
+    """Persist a schedule for a given date."""
+    conn = get_db()
+    for station, people in schedule.items():
+        conn.execute(
+            """
+            REPLACE INTO schedules (
+                date, station, person1, person2, person3, person4, person5, person6
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (date_str, station, *people)
+        )
+    conn.commit()
+    conn.close()
+
+
+def load_schedule(date_str):
+    """Load a schedule for a given date."""
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT station, person1, person2, person3, person4, person5, person6 FROM schedules WHERE date = ?",
+        (date_str,),
+    ).fetchall()
+    conn.close()
+    schedule = {}
+    for row in rows:
+        schedule[row["station"]] = [
+            row["person1"],
+            row["person2"],
+            row["person3"],
+            row["person4"],
+            row["person5"],
+            row["person6"],
+        ]
+    return schedule
 
 
 app = Flask(__name__)
@@ -260,8 +313,22 @@ def schedule():
     names = sorted(data.keys())
     part_levels = compute_part_levels(data)
     levels = resolve_station_levels(STATIONS, part_levels)
+    prev_date = (datetime.date.today() - datetime.timedelta(days=1)).isoformat()
+    prev_schedule = load_schedule(prev_date)
     stations = list(enumerate(STATIONS))
-    return render_template("schedule.html", stations=stations, names=names, levels=levels)
+    return render_template(
+        "schedule.html",
+        stations=stations,
+        names=names,
+        levels=levels,
+        prev_schedule=prev_schedule,
+    )
+
+
+@app.route("/previous_schedules")
+def previous_schedules():
+    """Show a calendar for selecting previous schedules."""
+    return render_template("previous_schedules.html")
 
 
 @app.route("/generate_schedule", methods=["POST"])
@@ -275,18 +342,25 @@ def generate_schedule():
             people.append(request.form.get(key, ""))
         schedule[station] = people
     session['last_schedule'] = schedule
+    save_schedule(datetime.date.today().isoformat(), schedule)
     return redirect(url_for('view_schedule'))
 
 
 @app.route("/view_schedule")
 def view_schedule():
-    schedule = session.get('last_schedule')
+    date_str = request.args.get('date')
+    if date_str:
+        schedule = load_schedule(date_str)
+    else:
+        schedule = session.get('last_schedule')
     if not schedule:
         return redirect(url_for('schedule'))
     _, _, _, data = load_workbook_data()
     part_levels = compute_part_levels(data)
     levels = resolve_station_levels(schedule.keys(), part_levels)
-    return render_template("generated_schedule.html", schedule=schedule, levels=levels)
+    return render_template(
+        "generated_schedule.html", schedule=schedule, levels=levels, selected_date=date_str
+    )
 
 @app.route("/decrease", methods=["GET", "POST"])
 def decrease():

@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block content %}
+  <h2>Previous Schedules</h2>
+  <p>Select a date to view a schedule:</p>
+  <input type="date" id="scheduleDate">
+  <script>
+    document.getElementById('scheduleDate').addEventListener('change', function(){
+      var date = this.value;
+      if(date){
+        window.location = "{{ url_for('view_schedule') }}?date=" + date;
+      }
+    });
+  </script>
+{% endblock %}
